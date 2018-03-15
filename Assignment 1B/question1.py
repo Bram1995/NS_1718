@@ -5,15 +5,14 @@ import numpy as np
 from dijkstrasalgoritm import dijkstra, graph_creator
 from col_generation import col_generation
 
-#dit is een test
-
 
 ## Load data
-xl = pd.ExcelFile("Input_AE4424_Ass1P1.xlsx")
+xl = pd.ExcelFile("Input_AE4424_Ass1P2.xlsx")
 dfs = {sheet: xl.parse(sheet) for sheet in xl.sheet_names}
 
 ## Create sets
-arcs = range(len(dfs['Arcs'].Arc))
+flights = dfs["Flight"]["Flight Number"].tolist()
+
 origins = dfs['Arcs'].From
 destinations = dfs['Arcs'].To
 locations = pd.concat([dfs['Arcs'].From,dfs['Arcs'].To]).unique()
