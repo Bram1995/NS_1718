@@ -7,11 +7,12 @@ from col_generation import col_generation
 
 
 ## Load data
-xl = pd.ExcelFile("Input_AE4424_Ass1P2.xlsx")
+xl = pd.ExcelFile("Assignment 1B/Input_AE4424_Ass1P2.xlsx")
 dfs = {sheet: xl.parse(sheet) for sheet in xl.sheet_names}
 
 ## Create sets
 flights = dfs["Flight"]["Flight Number"].tolist()
+
 
 origins = dfs['Arcs'].From
 destinations = dfs['Arcs'].To
