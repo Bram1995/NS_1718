@@ -6,6 +6,9 @@ import numpy as np
 ## Olivier
 
 
+
+# barmamama
+
 ## Load data
 xl = pd.ExcelFile("Input_AE4424_Ass1P1.xlsx")
 dfs = {sheet: xl.parse(sheet) for sheet in xl.sheet_names}
