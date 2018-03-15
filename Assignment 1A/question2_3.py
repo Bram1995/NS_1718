@@ -5,22 +5,19 @@ import numpy as np
 from dijkstrasalgoritm import dijkstra, graph_creator
 from col_generation import col_generation
 
-#dit is een test
-
 
 ## Load data
 xl = pd.ExcelFile("Input_AE4424_Ass1P1.xlsx")
 dfs = {sheet: xl.parse(sheet) for sheet in xl.sheet_names}
-dfs_copy = copy.deepcopy(dfs)
 new_to_column = dfs['Arcs'].From
 new_from_column = dfs['Arcs'].To
 cost_column = dfs['Arcs'].Cost
 capacity_column = dfs['Arcs'].Capacity
 arc_column = np.array(range(31, 61, 1))
-print(arc_column)
 dfs_new = pd.DataFrame({'Arc':arc_column,'To':new_to_column,'From':new_from_column,'Cost':cost_column,
                         'Capacity':capacity_column},index=None)
-pd.concat([dfs,dfs_new])
+dfs['Arcs'] = pd.concat([dfs['Arcs'],dfs_new])
+dfs['Arcs'] = dfs['Arcs'].reset_index(drop=True)
 
 
 ## Create sets
@@ -32,7 +29,7 @@ commodities = range(1, len(dfs['Commodities'].Commodity) + 1)
 quantity = np.array(dfs['Commodities'].Quant)
 
 ## Create input matrices
-graph = graph_creator()
+graph = graph_creator(dfs)
 A_ineq = np.zeros((len(arcs),len(commodities)))
 C = []
 for i in range(len(commodities)):
@@ -100,7 +97,7 @@ new_cost = np.array([c_ij-pi])
 
 k = 1
 while (np.inner(new_cost,delta.transpose()) < sig_vect/quantity_vect).any():
-    RMP, A_eq, A_ineq, com_added = col_generation(RMP, original_graph, pi, sig, k, A_ineq, A_eq)
+    RMP, A_eq, A_ineq, com_added = col_generation(RMP, original_graph, pi, sig, k, A_ineq, A_eq,dfs)
     # solve model
     RMP.solve()
     print("Solution status :", RMP.solution.get_status())

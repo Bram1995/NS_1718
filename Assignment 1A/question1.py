@@ -2,16 +2,18 @@ import cplex
 import pandas as pd
 import numpy as np
 
-
-## Olivier
-
-
-
-# barmamama
-
 ## Load data
 xl = pd.ExcelFile("Input_AE4424_Ass1P1.xlsx")
 dfs = {sheet: xl.parse(sheet) for sheet in xl.sheet_names}
+new_to_column = dfs['Arcs'].From
+new_from_column = dfs['Arcs'].To
+cost_column = dfs['Arcs'].Cost
+capacity_column = dfs['Arcs'].Capacity
+arc_column = np.array(range(31, 61, 1))
+dfs_new = pd.DataFrame({'Arc':arc_column,'To':new_to_column,'From':new_from_column,'Cost':cost_column,
+                        'Capacity':capacity_column},index=None)
+dfs['Arcs'] = pd.concat([dfs['Arcs'],dfs_new])
+dfs['Arcs'] = dfs['Arcs'].reset_index(drop=True)
 
 ## Create sets
 arcs = range(len(dfs['Arcs'].Arc))
