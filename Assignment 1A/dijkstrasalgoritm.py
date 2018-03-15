@@ -1,27 +1,9 @@
 import numpy as np
-import cplex
 
-import pandas as pd
-
-xl = pd.ExcelFile("Input_AE4424_Ass1P1.xlsx")
-dfs = {sheet: xl.parse(sheet) for sheet in xl.sheet_names}
-len(dfs['Commodities'].From.unique())
-len(dfs['Commodities'].To.unique())
-
-arcs = range(len(dfs['Arcs'].Arc))
-origins = dfs['Arcs'].From
-destinations = dfs['Arcs'].To
-locations = pd.concat([dfs['Arcs'].From, dfs['Arcs'].To]).unique()
-commodities = range(1, len(dfs['Commodities'].Commodity) + 1)
-costs = dfs['Arcs'].Cost
-
-
-# Graph creation, back and forth
-
-#dual_costs_array=np.ones(len(dfs['Arcs'].Arc))
-dual_costs_array=[]
-def graph_creator():
+def graph_creator(dfs):
     # graph=dict()
+    origins = dfs['Arcs'].From
+    destinations = dfs['Arcs'].To
     node_array = np.append(origins.values, destinations.values)
 
     destinations_list = []
@@ -43,7 +25,7 @@ def graph_creator():
     return graph
 
 
-graph = graph_creator()
+
 
 
 # --------------------------------------------------------------------------------------------------------------------
@@ -102,7 +84,7 @@ def dijkstra(graph, src, dest, visited=None, distances=None, predecessors=None):
         return dijkstra(graph, x, dest, visited, distances, predecessors)
 
 
-path, path_cost = dijkstra(graph, 'ANC','CVG')
+
 
 
 

@@ -3,20 +3,14 @@ import numpy as np
 from dijkstrasalgoritm import dijkstra
 import copy
 
-## Load data
-xl = pd.ExcelFile("Input_AE4424_Ass1P1.xlsx")
-dfs = {sheet: xl.parse(sheet) for sheet in xl.sheet_names}
-## Create sets
-arcs = range(len(dfs['Arcs'].Arc))
-origins = dfs['Arcs'].From
-destinations = dfs['Arcs'].To
-locations = pd.concat([dfs['Arcs'].From,dfs['Arcs'].To]).unique()
-commodities = range(1, len(dfs['Commodities'].Commodity) + 1)
-quantity = np.array(dfs['Commodities'].Quant)
-rhs_ineq = list(dfs['Arcs'].Capacity)
-rhs_eq = [1]*len(commodities)
+def col_generation(model, original_graph, pi, sig, k, A_ineq, A_eq, dfs, com_added=None,):
+    arcs = range(len(dfs['Arcs'].Arc))
+    # origins = dfs['Arcs'].From
+    # destinations = dfs['Arcs'].To
+    # locations = pd.concat([dfs['Arcs'].From, dfs['Arcs'].To]).unique()
+    commodities = range(1, len(dfs['Commodities'].Commodity) + 1)
+    quantity = np.array(dfs['Commodities'].Quant)
 
-def col_generation(model, original_graph, pi, sig, k, A_ineq, A_eq, com_added=None):
     # adjust graph with new costs
     if com_added is None:
         com_added = []
@@ -49,7 +43,7 @@ def col_generation(model, original_graph, pi, sig, k, A_ineq, A_eq, com_added=No
     model.linear_constraints.add(
         lin_expr=constraints_ineq,
         senses=['L'] * len(arcs),
-        rhs=rhs_ineq)
+        rhs=list(dfs['Arcs'].Capacity))
     # Add eq constraints
     constraints_eq = list()
     for i in range(len(commodities)):
@@ -57,5 +51,5 @@ def col_generation(model, original_graph, pi, sig, k, A_ineq, A_eq, com_added=No
     model.linear_constraints.add(
         lin_expr=constraints_eq,
         senses=['E'] * len(commodities),
-        rhs=rhs_eq)
+        rhs= [1]*len(commodities))
     return model, A_eq, A_ineq, com_added
