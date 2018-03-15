@@ -5,6 +5,9 @@ import numpy as np
 from dijkstrasalgoritm import dijkstra, graph_creator
 from col_generation import col_generation
 
+#dit is een test
+
+
 ## Load data
 xl = pd.ExcelFile("Input_AE4424_Ass1P1.xlsx")
 dfs = {sheet: xl.parse(sheet) for sheet in xl.sheet_names}
