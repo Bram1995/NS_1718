@@ -11,6 +11,17 @@ from col_generation import col_generation
 ## Load data
 xl = pd.ExcelFile("Input_AE4424_Ass1P1.xlsx")
 dfs = {sheet: xl.parse(sheet) for sheet in xl.sheet_names}
+dfs_copy = copy.deepcopy(dfs)
+new_to_column = dfs['Arcs'].From
+new_from_column = dfs['Arcs'].To
+cost_column = dfs['Arcs'].Cost
+capacity_column = dfs['Arcs'].Capacity
+arc_column = np.array(range(31, 61, 1))
+print(arc_column)
+dfs_new = pd.DataFrame({'Arc':arc_column,'To':new_to_column,'From':new_from_column,'Cost':cost_column,
+                        'Capacity':capacity_column},index=None)
+pd.concat([dfs,dfs_new])
+
 
 ## Create sets
 arcs = range(len(dfs['Arcs'].Arc))
