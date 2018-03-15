@@ -14,6 +14,30 @@ dfs = {sheet: xl.parse(sheet) for sheet in xl.sheet_names}
 flights = dfs["Flight"]["Flight Number"].tolist()
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 origins = dfs['Arcs'].From
 destinations = dfs['Arcs'].To
 locations = pd.concat([dfs['Arcs'].From,dfs['Arcs'].To]).unique()
