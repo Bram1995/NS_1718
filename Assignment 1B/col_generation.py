@@ -14,20 +14,25 @@ def col_generation(dfs, bprlist=None):
     #flights = dfs["Flight"].index.values.tolist()
     #itin = dfs["Itinerary"]["Itin No."].tolist()
     #fare = dfs["Itinerary"]["Fare"].tolist()
-    recapture = dfs["Recapture Rate"]["Index"].tolist()
+    recapture = dfs["Recapture Rate"].index.values
     plist = dfs['Recapture Rate']['From Itinerary'].tolist()
-    tlist = dfs['Recapture Rate']['To Itinerary'].tolist()
+    rlist = dfs['Recapture Rate']['To Itinerary'].tolist()
     fareplist = dfs['Recapture Rate']["Fare 'From'"].tolist()
-    faretlist = dfs['Recapture Rate']["Fare 'To'"].tolist()
+    farerlist = dfs['Recapture Rate']["Fare 'To' "].tolist()
     bprlist = dfs['Recapture Rate']["Recapture Rate"].tolist()
     if bprlist == None:
         bprlist=[]
     for i in recapture:
         p = plist[i]
-        t = tlist[i]
-        farep = fareplist[i]
-        faret = faretlist[i]
+        r = rlist[i]
+        fare_p = fareplist[i]
+        fare_r = farerlist[i]
         bpr = bprlist[i]
+        flight_numbers = dfs['Itinerary'].loc[ i , 'Leg 1' : 'Leg 2'].tolist()
+        flight_numbers = [x for x in flight_numbers if str(x) != 'nan']
+        for index, flight_number in enumerate(flight_numbers):
+
+
 
 col_generation(dfs)
 
