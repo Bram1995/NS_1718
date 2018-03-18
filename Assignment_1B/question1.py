@@ -2,8 +2,7 @@ import cplex
 import numpy as np
 import pandas as pd
 # from col_generation import col_generation
-
-def col_generation(RMP,dfs, pi,sig_vect, p_index_list):
+def col_generation(RMP,dfs, pi,sig_vect, p_index_list,vars_added):
     ## Create sets
     flights = dfs["Flight"].index.values.tolist()
     recapture = dfs["Recapture Rate"].index.values
@@ -13,7 +12,7 @@ def col_generation(RMP,dfs, pi,sig_vect, p_index_list):
     farerlist = dfs['Recapture Rate']["Fare 'To' "].tolist()
     bprlist = dfs['Recapture Rate']["Recapture Rate"].tolist()
     col_added = False
-    for i in recapture:
+    for i in set(recapture)-set(vars_added):
         p = plist[i]
         r = rlist[i]
         fare_p = fareplist[i]
@@ -37,9 +36,9 @@ def col_generation(RMP,dfs, pi,sig_vect, p_index_list):
 
 
         tpr = fare_p - bpr * fare_r - p_total_pi + bpr * r_total_pi - sig_vect[p]
-        print(tpr)
         if round(tpr,5) < 0:
             col_added = True
+            vars_added.append(i)
             cost = fare_p - bpr * fare_r
             p_leg_ind_list = []
             for leg in p_flight_numbers:
@@ -66,7 +65,7 @@ def col_generation(RMP,dfs, pi,sig_vect, p_index_list):
                 RMP.variables.add(obj=[cost], lb=[0],names=['t_'+str(p)+'_'+str(r)], columns=[[p_leg_ind_list + r_leg_ind_list,
                 [1] * len(p_leg_ind_list) + [-bpr] * len(r_leg_ind_list)]])
 
-    return(RMP,p_index_list, col_added)
+    return(RMP,p_index_list, col_added,vars_added)
 
 ## Load data
 xl = pd.ExcelFile("Assignment_1B/Input_AE4424_Ass1P2.xlsx")
@@ -115,6 +114,7 @@ obj = RMP.solution.get_objective_value()
 
 pi = np.array(RMP.solution.get_dual_values()[:len(flights)])
 sig_it_index_list = []  # list of indices of itineraries for which row constraint is added
+vars_added = []  # list of indices of recapture variables already added to model by column generation
 sig_vect = np.array([0]*len(dfs['Itinerary']))  # initially we do not have sigma -> set to 0 for pricing problem
 RMP.write('rmp.lp')
 
@@ -127,7 +127,7 @@ while Opt_Row is False or Opt_Col is False:
     # Column Generation loop
     while Opt_Col is False:
         col_added = False
-        RMP, p_index_list, col_added = col_generation(RMP, dfs, pi, sig_vect, p_index_list)
+        RMP, p_index_list, col_added, vars_added = col_generation(RMP, dfs, pi, sig_vect, p_index_list, vars_added)
         if col_added is True:
             RMP.solve()
             print("Cost            : {0:.5f}".format(RMP.solution.get_objective_value()))
@@ -157,7 +157,6 @@ while Opt_Row is False or Opt_Col is False:
             print("Cost            : {0:.5f}".format(RMP.solution.get_objective_value()))
             print("Solution status :", RMP.solution.get_status())
             sol = np.array(RMP.solution.get_values())
-            print(sol)
             sol_names = np.array(RMP.variables.get_names())
             obj = RMP.solution.get_objective_value()
             pi = np.array(RMP.solution.get_dual_values()[:len(flights)])

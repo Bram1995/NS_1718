@@ -1,4 +1,4 @@
-def col_generation(RMP,dfs, pi,sig_vect, p_index_list):
+def col_generation(RMP,dfs, pi,sig_vect, p_index_list,vars_added):
     ## Create sets
     flights = dfs["Flight"].index.values.tolist()
     recapture = dfs["Recapture Rate"].index.values
@@ -7,8 +7,8 @@ def col_generation(RMP,dfs, pi,sig_vect, p_index_list):
     fareplist = dfs['Recapture Rate']["Fare 'From'"].tolist()
     farerlist = dfs['Recapture Rate']["Fare 'To' "].tolist()
     bprlist = dfs['Recapture Rate']["Recapture Rate"].tolist()
-
-    for i in recapture:
+    col_added = False
+    for i in set(recapture)-set(vars_added):
         p = plist[i]
         r = rlist[i]
         fare_p = fareplist[i]
@@ -34,6 +34,7 @@ def col_generation(RMP,dfs, pi,sig_vect, p_index_list):
         tpr = fare_p - bpr * fare_r - p_total_pi + bpr * r_total_pi - sig_vect[p]
         if round(tpr,5) < 0:
             col_added = True
+            vars_added.append(i)
             cost = fare_p - bpr * fare_r
             p_leg_ind_list = []
             for leg in p_flight_numbers:
@@ -54,10 +55,10 @@ def col_generation(RMP,dfs, pi,sig_vect, p_index_list):
                     break
             p_index_list.append(p)
             if same_flight_index is not None:
-                RMP.variables.add(obj=[cost],names=['t_'+str(p)+'_'+str(r)],columns=[[p_leg_ind_list+r_leg_ind_list + [same_flight_index],
+                RMP.variables.add(obj=[cost],lb=[0],names=['t_'+str(p)+'_'+str(r)],columns=[[p_leg_ind_list+r_leg_ind_list + [same_flight_index],
                                                                              [1]*len(p_leg_ind_list) + [-bpr]*len(r_leg_ind_list) + [1 - bpr]]])
             else:
-                RMP.variables.add(obj=[cost], names=['t_'+str(p)+'_'+str(r)], columns=[[p_leg_ind_list + r_leg_ind_list,
+                RMP.variables.add(obj=[cost], lb=[0],names=['t_'+str(p)+'_'+str(r)], columns=[[p_leg_ind_list + r_leg_ind_list,
                 [1] * len(p_leg_ind_list) + [-bpr] * len(r_leg_ind_list)]])
 
-    return(RMP,p_index_list, col_added)
+    return(RMP,p_index_list, col_added,vars_added)
