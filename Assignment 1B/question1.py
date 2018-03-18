@@ -6,7 +6,7 @@ from col_generation import col_generation
 
 
 ## Load data
-xl = pd.ExcelFile("Assignment 1B/Input_AE4424_Ass1P2.xlsx")
+xl = pd.ExcelFile("Input_AE4424_Ass1P2.xlsx")
 dfs = {sheet: xl.parse(sheet) for sheet in xl.sheet_names}
 dfs['Flight'] = dfs['Flight'].set_index('Flight Number')
 
@@ -59,6 +59,15 @@ obj = RMP.solution.get_objective_value()
 pi = np.array(RMP.solution.get_dual_values()[:len(flights)])
 sig = np.array(RMP.solution.get_dual_values()[len(flights):])
 RMP.write('rmp.lp')
+
+p_index = [1]*len(A_1[0])
+sig = [0]*len(dfs['Itinerary'].index.values)
+DV_label_list = []
+
+p_index,DV_label_list,A_ineq = col_generation(dfs, pi,sig, p_index, A_1, DV_label_list)
+
+
+
 
 
 

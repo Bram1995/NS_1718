@@ -6,35 +6,61 @@ import copy
 xl = pd.ExcelFile("Input_AE4424_Ass1P2.xlsx")
 dfs = {sheet: xl.parse(sheet) for sheet in xl.sheet_names}
 dfs['Flight'] = dfs['Flight'].set_index('Flight Number')
+flights = dfs["Flight"].index.values.tolist()
 
-
-
-def col_generation(dfs, bprlist=None):
+itin = dfs["Itinerary"]["Itin No."].tolist()
+A_1 = np.zeros((len(flights), len(itin)))
+p_index = [1]*len(A_1[0])
+sig = [0]*len(dfs['Itinerary'].index.values)
+DV_label_list = []
+def col_generation(dfs, pi,sig, p_index, A_ineq, DV_label_list):
     ## Create sets
-    #flights = dfs["Flight"].index.values.tolist()
-    #itin = dfs["Itinerary"]["Itin No."].tolist()
-    #fare = dfs["Itinerary"]["Fare"].tolist()
+    flights = dfs["Flight"].index.values.tolist()
     recapture = dfs["Recapture Rate"].index.values
     plist = dfs['Recapture Rate']['From Itinerary'].tolist()
     rlist = dfs['Recapture Rate']['To Itinerary'].tolist()
     fareplist = dfs['Recapture Rate']["Fare 'From'"].tolist()
     farerlist = dfs['Recapture Rate']["Fare 'To' "].tolist()
     bprlist = dfs['Recapture Rate']["Recapture Rate"].tolist()
-    if bprlist == None:
-        bprlist=[]
+
     for i in recapture:
         p = plist[i]
         r = rlist[i]
         fare_p = fareplist[i]
         fare_r = farerlist[i]
         bpr = bprlist[i]
-        flight_numbers = dfs['Itinerary'].loc[ i , 'Leg 1' : 'Leg 2'].tolist()
-        flight_numbers = [x for x in flight_numbers if str(x) != 'nan']
-        for index, flight_number in enumerate(flight_numbers):
+        #find flights belonging to p
+        p_flight_numbers = dfs['Itinerary'].loc[ p , 'Leg 1' : 'Leg 2'].tolist()
+        p_flight_numbers = [x for x in p_flight_numbers if str(x) != 'nan']
+        p_pi_list = []
+        for j, flight_number in enumerate(p_flight_numbers):
+            p_pi_list.append(pi[flights.index(flight_number)])
+        p_total_pi = sum(p_pi_list)
+
+        # find flights belonging to r
+        r_flight_numbers = dfs['Itinerary'].loc[r, 'Leg 1': 'Leg 2'].tolist()
+        r_flight_numbers = [x for x in r_flight_numbers if str(x) != 'nan']
+        r_pi_list = []
+        for j, flight_number in enumerate(r_flight_numbers):
+            r_pi_list.append(pi[flights.index(flight_number)])
+        r_total_pi = sum(r_pi_list)
 
 
+        tpr = fare_p - bpr * fare_r - p_total_pi + bpr * r_total_pi - sig[p]
+        if tpr < 0:
+            column = np.zeros((len(flights), 1))
+            for leg in p_flight_numbers:
+                p_leg_ind = flights.index(leg)
+                column[p_leg_ind] = 1
+            for leg in r_flight_numbers:
+                r_leg_ind = flights.index(leg)
+                column[r_leg_ind] = -1*bpr
+            A_ineq = np.c_[A_ineq,column]
 
-col_generation(dfs)
+            DV_label_list.append('t' + '_' + str(p) + '_' + str(r))
+            p_index.append(p)
+
+    return(p_index,DV_label_list,A_ineq)
 
 
 # def col_generation(model, original_graph, pi, sig, k, A_ineq, A_eq, com_added=None):
