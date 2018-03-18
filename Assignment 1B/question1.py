@@ -2,6 +2,7 @@ import cplex
 import copy
 import numpy as np
 import pandas as pd
+from col_generation import col_generation
 
 
 ## Load data
