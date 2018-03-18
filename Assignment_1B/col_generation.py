@@ -3,17 +3,18 @@ import numpy as np
 import copy
 
 ## Load data
-xl = pd.ExcelFile("Input_AE4424_Ass1P2.xlsx")
-dfs = {sheet: xl.parse(sheet) for sheet in xl.sheet_names}
-dfs['Flight'] = dfs['Flight'].set_index('Flight Number')
-flights = dfs["Flight"].index.values.tolist()
+#xl = pd.ExcelFile("Input_AE4424_Ass1P2.xlsx")
+#dfs = {sheet: xl.parse(sheet) for sheet in xl.sheet_names}
+#dfs['Flight'] = dfs['Flight'].set_index('Flight Number')
+#flights = dfs["Flight"].index.values.tolist()
 
-itin = dfs["Itinerary"]["Itin No."].tolist()
-A_1 = np.zeros((len(flights), len(itin)))
-p_index = [1]*len(A_1[0])
-sig = [0]*len(dfs['Itinerary'].index.values)
-DV_label_list = []
-def col_generation(dfs, pi,sig, p_index, A_ineq, DV_label_list):
+#itin = dfs["Itinerary"]["Itin No."].tolist()
+#A_1 = np.zeros((len(flights), len(itin)))
+#p_index = [1]*len(A_1[0])
+#sig = [0]*len(dfs['Itinerary'].index.values)
+#DV_label_list = []
+
+def col_generation(RMP,dfs, pi,sig, p_index_list, DV_label_list):
     ## Create sets
     flights = dfs["Flight"].index.values.tolist()
     recapture = dfs["Recapture Rate"].index.values
@@ -48,19 +49,42 @@ def col_generation(dfs, pi,sig, p_index, A_ineq, DV_label_list):
 
         tpr = fare_p - bpr * fare_r - p_total_pi + bpr * r_total_pi - sig[p]
         if tpr < 0:
-            column = np.zeros((len(flights), 1))
+            cost = fare_p - bpr * fare_r
+
+            p_leg_ind_list = []
             for leg in p_flight_numbers:
-                p_leg_ind = flights.index(leg)
-                column[p_leg_ind] = 1
+                p_index = flights.index(leg)
+                p_leg_ind_list.append(p_index)
+
+            r_leg_ind_list = []
             for leg in r_flight_numbers:
-                r_leg_ind = flights.index(leg)
-                column[r_leg_ind] = -1*bpr
-            A_ineq = np.c_[A_ineq,column]
+                r_index = flights.index(leg)
+                r_leg_ind_list.append(r_index)
 
+            same_flight_index = None
+            for i in range(len(p_leg_ind_list)):
+                if p_leg_ind_list[i] in r_leg_ind_list:
+                    print(p_leg_ind_list)
+                    print(r_leg_ind_list)
+                    same_flight_index = p_leg_ind_list[i]
+                    p_leg_ind_list = list(set(p_leg_ind_list)-{p_leg_ind_list[i]})
+                    r_leg_ind_list = list(set(r_leg_ind_list) - {r_leg_ind_list[i]})
+                    break
+            print([[p_leg_ind_list + r_leg_ind_list],
+                [1] * len(p_leg_ind_list) + [-bpr] * len(r_leg_ind_list)])
+            print(p)
+            print(r)
             DV_label_list.append('t' + '_' + str(p) + '_' + str(r))
-            p_index.append(p)
+            p_index_list.append(p)
+            if same_flight_index is not None:
+                RMP.variables.add(obj=[cost],names=[DV_label_list[-1]],columns=[[p_leg_ind_list+r_leg_ind_list + [same_flight_index],
+                                                                             [1]*len(p_leg_ind_list) + [-bpr]*len(r_leg_ind_list) + [1 - bpr]]])
+            else:
+                RMP.variables.add(obj=[cost], names=[DV_label_list[-1]], columns=[[p_leg_ind_list + r_leg_ind_list,
+                [1] * len(p_leg_ind_list) + [-bpr] * len(r_leg_ind_list)]])
 
-    return(p_index,DV_label_list,A_ineq)
+
+    return(RMP,p_index_list,DV_label_list)
 
 
 # def col_generation(model, original_graph, pi, sig, k, A_ineq, A_eq, com_added=None):
