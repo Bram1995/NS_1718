@@ -2,7 +2,7 @@ import cplex
 import copy
 import numpy as np
 import pandas as pd
-from col_generation import col_generation
+#from col_generation import col_generation
 
 
 ## Load data
@@ -14,6 +14,7 @@ dfs['Flight'] = dfs['Flight'].set_index('Flight Number')
 flights = dfs["Flight"].index.values.tolist()
 itin = dfs["Itinerary"]["Itin No."].tolist()
 Fare = dfs["Itinerary"]["Fare"].tolist()
+Demand = dfs["Itinerary"]["Demand"].tolist()
 
 ## Make cplex  model
 RMP = cplex.Cplex()
@@ -38,22 +39,14 @@ for i in range(len(flights)):
         senses=['G'],
         rhs=[rhs_1[i]])
 
-# ## Add constraint set 2
-# A_2 = np.eye(len(itin))
-# for i in range(len(itin)):
-#     RMP.linear_constraints.add(
-#         lin_expr=[[[i], [1]]],
-#         senses=['L'],
-#         rhs=[dfs["Itinerary"]["Demand"].tolist()[i]])
-#
-
 
 ## Solve model
 RMP.solve()
 print("Solution status :", RMP.solution.get_status())
 print("Cost            : {0:.5f}".format(RMP.solution.get_objective_value()))
 print()
-sol = RMP.solution.get_values()
+sol = np.array(RMP.solution.get_values())
+sol_names = np.array(RMP.variables.get_names())
 obj = RMP.solution.get_objective_value()
 
 pi = np.array(RMP.solution.get_dual_values()[:len(flights)])
@@ -95,3 +88,31 @@ RMP.write('rmp.lp')
 #     quantity_vect = np.append(quantity_vect, quantity[np.array(com_added) - 1])
 #     k += 1
 # RMP.write('rmp.lp')
+
+
+
+p_index = np.arange(0,len(itin))
+##  Row generation
+Opt_Row = False
+
+# solve separation problem
+while Opt_Row is False:
+    for p in range(len(itin)):
+        if sum(sol[p_index==p]) <= Demand[p]:
+            RMP.linear_constraints.add(
+                lin_expr=[[list(sol_names[p_index==p]), [1]*sum(p_index==p)]],
+                senses=['L'],
+                rhs=[Demand[p]])
+            Opt_Col = False
+            RMP.solve()
+            print("Solution status :", RMP.solution.get_status())
+            sol = np.array(RMP.solution.get_values())
+            sol_names = np.array(RMP.variables.get_names())
+            obj = RMP.solution.get_objective_value()
+            pi = np.array(RMP.solution.get_dual_values()[:len(flights)])
+            sig = np.array(RMP.solution.get_dual_values()[len(flights):])
+        else:
+            Opt_Row = True
+
+
+RMP.linear_constraints.add()

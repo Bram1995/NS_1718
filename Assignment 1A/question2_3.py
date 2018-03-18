@@ -129,18 +129,18 @@ print("and between:")
 print(origins[ind_two_arcs[1]] + ' and ' + destinations[ind_two_arcs[1]])
 
 
-### Dis did not work..
-# for c in range(len(commodities)):
-#     path_new, C_new = dijkstra(graph, dfs['Commodities'].From[c], dfs['Commodities'].To[c])
-#     C_new = float(C_new)
-#     if C_new < sig[c]/quantity[c]:
-#         A_ineq_add = np.zeros(len(arcs))
-#         for j in range(len(path_new)-1):
-#             index = dfs['Arcs'].index[(dfs['Arcs'].From == path_new[j]) & (dfs['Arcs'].To == path_new[j+1])]
-#             A_ineq_add[index] = 1*quantity[c]
-#         row_index = list(A_ineq_add.nonzero()[0])
-#         row_value = list(A_ineq_add[row_index])+[1]
-#         row_index.append(len(arcs)+c)
-#         RMP.variables.add(obj= [C_new],
-#                           names=['f_k' + str(c) + '_' + str(k)],
-#                           columns=[row_index,row_value])
+## Dis did not work..
+for c in range(len(commodities)):
+    path_new, C_new = dijkstra(graph, dfs['Commodities'].From[c], dfs['Commodities'].To[c])
+    C_new = float(C_new)
+    if C_new < sig[c]/quantity[c]:
+        A_ineq_add = np.zeros(len(arcs))
+        for j in range(len(path_new)-1):
+            index = dfs['Arcs'].index[(dfs['Arcs'].From == path_new[j]) & (dfs['Arcs'].To == path_new[j+1])]
+            A_ineq_add[index] = 1*quantity[c]
+        row_index = list(A_ineq_add.nonzero()[0])
+        row_value = list(A_ineq_add[row_index])+[1]
+        row_index.append(len(arcs)+c)
+        RMP.variables.add(obj= [C_new],
+                          names=['f_k' + str(c) + '_' + str(k)],
+                          columns=[row_index,row_value])
