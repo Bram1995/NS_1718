@@ -1,6 +1,9 @@
 import cplex
 import pandas as pd
 import numpy as np
+from datetime import datetime
+
+startTime = datetime.now()
 
 ## Load data
 xl = pd.ExcelFile("Input_AE4424_Ass1P1.xlsx")
@@ -77,11 +80,12 @@ model = cplex.Cplex()
 model.objective.set_sense(model.objective.sense.minimize)
 
 # Add variables
+
 model.variables.add(obj= C,
                     names=
                     ['x' + '_' + dfs['Arcs'].From[i] + '_' + dfs['Arcs'].To[i] + '_' + str(c)
-                     for i in arcs
                      for c in commodities
+                     for i in arcs
                      ],
                     )
 
@@ -109,15 +113,37 @@ model.linear_constraints.add(
 
 # Solve the problem
 model.solve()
-
+print(datetime.now()-startTime)
 # write out the model in LP format for debugging
+sol = np.array(model.solution.get_values())
+names = model.variables.get_names()
 model.write("q1.lp")
-sol = model.solution.get_values()
+relevant_sol = sol[sol>0]
+indices_relevant_sol = np.array(np.nonzero(sol>0))
+
+relevant_names = [names[int(i)] for i in indices_relevant_sol[0]]
 obj = model.solution.get_objective_value()
 pi = model.solution.get_dual_values()
 
+dataframe_dict={}
+for j in commodities:
+    dataframe_dict[str(j)] = pd.DataFrame(index=[],columns=[])
+
+for i, name in enumerate(relevant_names):
+
+    print(name, relevant_names[i])
+    origin = name.split('_')[1]
+    destination = name.split('_')[2]
+    commodity = name.split('_')[3]
+    quantity = relevant_sol[i]
+    dataframe_dict[str(commodity)].at[str(origin),str(destination)] = quantity
+    dataframe_dict[str(commodity)]= dataframe_dict[str(commodity)].fillna("")
+    #print(i,origin,destination,commodity,quantity)
 
 
 
 
-
+writer = pd.ExcelWriter('1.1solution.xlsx')
+for i in commodities:
+    dataframe_dict[str(i)].to_excel(writer, str(i))
+    writer.save()

@@ -4,7 +4,10 @@ import pandas as pd
 import numpy as np
 from dijkstrasalgoritm import dijkstra, graph_creator
 from col_generation import col_generation
-
+from datetime import datetime
+import matplotlib.pyplot as plt
+import xlsxwriter
+startTime = datetime.now()
 
 ## Load data
 xl = pd.ExcelFile("Input_AE4424_Ass1P1.xlsx")
@@ -83,7 +86,7 @@ obj = RMP.solution.get_objective_value()
 pi = np.array(RMP.solution.get_dual_values()[:len(arcs)])
 sig = np.array(RMP.solution.get_dual_values()[len(arcs):])
 
-
+time0 = datetime.now() - startTime
 ## COLUMN GENERATION ------------------------------------------------------
 original_graph = copy.deepcopy(graph)
 commodity_order = list(range(1,len(commodities)+1))
@@ -95,6 +98,9 @@ delta[delta>0] = 1
 c_ij = dfs['Arcs']['Cost'].values
 new_cost = np.array([c_ij-pi])
 
+solution_list = [obj]
+column_list = [len(sol)]
+time_list = [str(time0)]
 k = 1
 while (np.inner(new_cost,delta.transpose()) < sig_vect/quantity_vect).any():
     RMP, A_eq, A_ineq, com_added = col_generation(RMP, original_graph, pi, sig, k, A_ineq, A_eq,dfs)
@@ -102,9 +108,12 @@ while (np.inner(new_cost,delta.transpose()) < sig_vect/quantity_vect).any():
     RMP.solve()
     print("Solution status :", RMP.solution.get_status())
     print("Cost            : {0:.5f}".format(RMP.solution.get_objective_value()))
-    print()
+    print(datetime.now() - startTime)
     sol = RMP.solution.get_values()
     obj = RMP.solution.get_objective_value()
+    solution_list.append(obj)
+    column_list.append(len(sol))
+    time_list.append(str(datetime.now() - startTime))
     pi = np.array(RMP.solution.get_dual_values()[:len(arcs)])
     sig = np.array(RMP.solution.get_dual_values()[len(arcs):])
 
@@ -129,18 +138,54 @@ print("and between:")
 print(origins[ind_two_arcs[1]] + ' and ' + destinations[ind_two_arcs[1]])
 
 
+
+plt.plot(column_list,solution_list,'b.')
+
+plt.title('Amount of columns VS OBJ value')
+plt.suptitle('Problem 1.2')
+plt.ylabel('Objective value')
+plt.xlabel('Amount of columns (#DV)')
+
+
+plt.show()
+
+dual_variables = np.concatenate((pi, sig))
+
+workbook = xlsxwriter.Workbook('solution.xlsx')
+worksheet = workbook.add_worksheet()
+
+for i,variable in enumerate(pi):
+    worksheet.write(i,2,variable)
+    worksheet.write(i, 0, dfs['Arcs']['From'][i])
+    worksheet.write(i, 1, dfs['Arcs']['To'][i])
+
+for i in range(len(sig)):
+    worksheet.write(i,4,sig[i])
+    worksheet.write(i,3,i+1)
+
+
+workbook.close()
+
+solutionbook = xlsxwriter.Workbook('solution2.xlsx')
+worksheet2 = solutionbook.add_worksheet()
+
+for i, variable in enumerate(sol):
+    worksheet2.write(i, 1, variable)
+    worksheet2.write(i, 0, RMP.variables.get_names()[i])
+
+solutionbook.close()
 ## Dis did not work..
-for c in range(len(commodities)):
-    path_new, C_new = dijkstra(graph, dfs['Commodities'].From[c], dfs['Commodities'].To[c])
-    C_new = float(C_new)
-    if C_new < sig[c]/quantity[c]:
-        A_ineq_add = np.zeros(len(arcs))
-        for j in range(len(path_new)-1):
-            index = dfs['Arcs'].index[(dfs['Arcs'].From == path_new[j]) & (dfs['Arcs'].To == path_new[j+1])]
-            A_ineq_add[index] = 1*quantity[c]
-        row_index = list(A_ineq_add.nonzero()[0])
-        row_value = list(A_ineq_add[row_index])+[1]
-        row_index.append(len(arcs)+c)
-        RMP.variables.add(obj= [C_new],
-                          names=['f_k' + str(c) + '_' + str(k)],
-                          columns=[row_index,row_value])
+# for c in range(len(commodities)):
+#     path_new, C_new = dijkstra(graph, dfs['Commodities'].From[c], dfs['Commodities'].To[c])
+#     C_new = float(C_new)
+#     if C_new < sig[c]/quantity[c]:
+#         A_ineq_add = np.zeros(len(arcs))
+#         for j in range(len(path_new)-1):
+#             index = dfs['Arcs'].index[(dfs['Arcs'].From == path_new[j]) & (dfs['Arcs'].To == path_new[j+1])]
+#             A_ineq_add[index] = 1*quantity[c]
+#         row_index = list(A_ineq_add.nonzero()[0])
+#         row_value = list(A_ineq_add[row_index])+[1]
+#         row_index.append(len(arcs)+c)
+#         RMP.variables.add(obj= [C_new],
+#                           names=['f_k' + str(c) + '_' + str(k)],
+#                           columns=[row_index,row_value])

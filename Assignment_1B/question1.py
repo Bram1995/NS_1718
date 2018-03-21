@@ -68,7 +68,7 @@ def col_generation(RMP,dfs, pi,sig_vect, p_index_list,vars_added):
     return(RMP,p_index_list, col_added,vars_added)
 
 ## Load data
-xl = pd.ExcelFile("Assignment_1B/Input_AE4424_Ass1P2.xlsx")
+xl = pd.ExcelFile("Input_AE4424_Ass1P2.xlsx")
 dfs = {sheet: xl.parse(sheet) for sheet in xl.sheet_names}
 dfs['Flight'] = dfs['Flight'].set_index('Flight Number')
 
@@ -166,4 +166,3 @@ while Opt_Row is False or Opt_Col is False:
             Opt_Row = True
 
 RMP.write('rmp.lp')
-
