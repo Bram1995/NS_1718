@@ -112,7 +112,7 @@ sol = np.array(RMP.solution.get_values())
 sol_names = np.array(RMP.variables.get_names())
 obj = RMP.solution.get_objective_value()
 
-pi = np.array(RMP.solution.get_dual_values()[:len(flights)])
+pi = np.array(RMP.solution.get_dual_values())
 sig_it_index_list = []  # list of indices of itineraries for which row constraint is added
 vars_added = []  # list of indices of recapture variables already added to model by column generation
 sig_vect = np.array([0]*len(dfs['Itinerary']))  # initially we do not have sigma -> set to 0 for pricing problem
@@ -122,7 +122,7 @@ RMP.write('rmp.lp')
 ##  COLUMN & ROW GENERATION
 Opt_Row = False
 Opt_Col = False
-p_index_list = np.arange(len(itin)).tolist()  # row of p-numbers for all variables added
+p_index_list = np.arange(len(itin)).tolist()  #i row of p-numbers for all variables added
 while Opt_Row is False or Opt_Col is False:
     # Column Generation loop
     while Opt_Col is False:
@@ -167,3 +167,7 @@ while Opt_Row is False or Opt_Col is False:
 
 RMP.write('rmp.lp')
 
+##  Get flow per flightleg between hubs and division of itnierary pax
+df_hubflights = dfs['Flight'].loc[dfs['Flight']["ORG"].isin(["AEP","EZE"]) & dfs['Flight']["DEST"].isin(["AEP","EZE"])]
+for i in iterrows(df_hubflights):
+    flow[i] = Q_i - sum_r t_ir + sum_r b_ri t_ri
