@@ -168,8 +168,8 @@ while Opt_Row is False or Opt_Col is False:
 RMP.write('rmp.lp')
 
 
-##  Get flow per flightleg between hubs and division of itnierary pax
-df_hubflights = dfs['Flight'].loc[dfs['Flight']["ORG"].isin(["AEP","EZE"]) & dfs['Flight']["DEST"].isin(["AEP","EZE"])]
-for i in iterrows(df_hubflights):
-    flow[i] = Q_i - sum_r t_ir + sum_r b_ri t_ri
+# ##  Get flow per flightleg between hubs and division of itnierary pax
+# df_hubflights = dfs['Flight'].loc[dfs['Flight']["ORG"].isin(["AEP","EZE"]) & dfs['Flight']["DEST"].isin(["AEP","EZE"])]
+# for i in iterrows(df_hubflights):
+#     flow[i] = Q_i - sum_r t_ir + sum_r b_ri t_ri
 

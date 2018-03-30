@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from dijkstrasalgoritm import dijkstra, graph_creator
+from Assignment1A_dijkstrasalgoritm import dijkstra, graph_creator
 import copy
 
 def col_generation(model, original_graph, pi, sig, k, A_ineq, A_eq, dfs, com_added=None,):
