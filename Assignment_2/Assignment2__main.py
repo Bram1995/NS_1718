@@ -108,6 +108,8 @@ for i in flights:
         senses=['E'],
         rhs=[1])
 
+
+## add seperate constraints for busses -> get own capacity
 ## Add constraint set 4
 rhs_1 = []
 A_1 = np.zeros((len(flights), len(itin)))
