@@ -1,6 +1,10 @@
 import cplex
 import numpy as np
 import pandas as pd
+import copy
+from datetime import datetime,timedelta,date
+from datetime import time as dt
+import time as tm
 
 def col_generation(RMP,dfs, pi,sig_vect, p_index_list,vars_added):
     ## Create sets
@@ -60,25 +64,85 @@ def col_generation(RMP,dfs, pi,sig_vect, p_index_list,vars_added):
             p_index_list.append(p)
             if same_flight_index is not None:
                 RMP.variables.add(obj=[cost],lb=[0],names=['t_'+str(p)+'_'+str(r)],columns=[[p_leg_ind_list+r_leg_ind_list + [same_flight_index],
-                                                                             [1]*len(p_leg_ind_list) + [-bpr]*len(r_leg_ind_list) + [1 - bpr]]])
+                                                                                             [1]*len(p_leg_ind_list) + [-bpr]*len(r_leg_ind_list) + [1 - bpr]]])
             else:
                 RMP.variables.add(obj=[cost], lb=[0],names=['t_'+str(p)+'_'+str(r)], columns=[[p_leg_ind_list + r_leg_ind_list,
-                [1] * len(p_leg_ind_list) + [-bpr] * len(r_leg_ind_list)]])
+                                                                                               [1] * len(p_leg_ind_list) + [-bpr] * len(r_leg_ind_list)]])
 
     return(RMP,p_index_list, col_added,vars_added)
 
 ## Load data
+bigM = 10000000
 xl = pd.ExcelFile("Assignment_2/Assignment2.xlsx")
 dfs = {sheet: xl.parse(sheet) for sheet in xl.sheet_names}
-dfs['Flight'] = dfs['Flight'].set_index('Flight Number')
-dfs['Flight'] = dfs['Flight'].fillna(10000000)  #fill in NAN values with big-M value
+flight_dfs = dfs['Flight'].set_index('Flight Number')
+flight_dfs.at[:,'Bus'] = bigM
+actype_dfs = dfs['Aircraft'].set_index(['Type'])
+actype_dfs.at['Bus',['Units','Seats','TAT (min)']] = [1,216,0]
+flight_dfs = flight_dfs.fillna(bigM)  #fill in NAN values with big-M value
+indices = flight_dfs.loc[(flight_dfs['ORG'] == 'AEP') & (flight_dfs['DEST'] == 'EZE') |
+                         (flight_dfs['ORG'] == 'EZE') & (flight_dfs['DEST'] == 'AEP')].index.tolist()
+flight_dfs.at[indices, actype_dfs.index.values.tolist()] = bigM  # set bigM for not possible assignments
+flight_dfs.at[indices, actype_dfs.index.values.tolist()[-1]] = 4500  # set bus cost
+flight_dfs.at["AR1361","B737"] = bigM
+
 
 ## Create sets
-flights = dfs["Flight"].index.values.tolist()
+flights = flight_dfs.index.values.tolist()
 itin = dfs["Itinerary"]["Itin No."].tolist()
 Fare = dfs["Itinerary"]["Fare"].tolist()
 Demand = dfs["Itinerary"]["Demand"].tolist()
-actypes = dfs["Aircraft"]["Type"].tolist()
+actypes = actype_dfs.index[:4]
+airport_list = sorted(list(set(flight_dfs['ORG'])))
+
+nodes_dfs_dict = {}  # dictionary with for every ACtype all nodes
+action_dict = {}
+for i in actype_dfs.index[:4]:
+    tat = int(actype_dfs.loc[i,'TAT (min)'])
+    flight_dataframe = copy.deepcopy(flight_dfs)
+    flight_dataframe = flight_dataframe.loc[(flight_dataframe[i] != bigM), ['ORG', 'DEST', 'Departure', 'Arrival', i]]
+    flight_dataframe = flight_dataframe.loc[(flight_dataframe[i] != 0.), ['ORG', 'DEST', 'Departure', 'Arrival', i]]
+    flight_dataframe_sub_1 = flight_dataframe.loc[:, ['ORG', 'Departure']].rename(columns={'ORG': 'Airport', 'Departure': 'Time'})
+    flight_dataframe_sub_1.at[:, 'Action'] = 'DEP'
+    flight_dataframe_sub_2 = flight_dataframe.loc[:, ['DEST', 'Arrival']].rename(columns={'DEST': 'Airport', 'Arrival': 'Time'})
+    flight_dataframe_sub_2.at[:, 'Action'] = 'ARR'
+    for k in flight_dataframe_sub_2.index:
+        time = datetime.combine(date(1,1,1),flight_dataframe_sub_2.loc[k,'Time'])
+        flight_dataframe_sub_2.at[k,'Time'] = (time + timedelta(minutes= tat)).time()
+    nodes_dataframe = copy.deepcopy(pd.concat([flight_dataframe_sub_1, flight_dataframe_sub_2])).sort_values(
+        ['Airport', 'Time'], ascending=[True, True])
+    nodes_dataframe_action = copy.deepcopy(nodes_dataframe)
+    nodes_dataframe = nodes_dataframe.drop_duplicates(subset=['Airport', 'Time'])
+    nodes_dataframe = nodes_dataframe.drop(columns='Action')
+    nodes_dfs_dict[i] = copy.deepcopy(nodes_dataframe.reset_index(drop=True))
+    action_dict[i] = copy.deepcopy(nodes_dataframe_action)
+
+ga_dict = {}  # dictionary with for every ACtype all ground arcs per airport
+GA_labels = []
+for k in actype_dfs.index[:4]:
+    for i in airport_list:
+        ground_arc_dfs = pd.DataFrame(columns = ['Airport','Time1','Time2'])
+        arc_selection = nodes_dfs_dict[k].loc[nodes_dfs_dict[k]['Airport']==i,:]
+        for p,j in enumerate(arc_selection.index):
+            time1 = arc_selection.iloc[p, 1]
+            if p == len(arc_selection.index)-1:
+                time2 =  arc_selection.iloc[0, 1]
+                GA_label = k + '_' + i + '_' + str(time1) + '_' + str(time2)
+                index = p+1
+                ground_arc_dfs.at[index, ['Airport','Time1', 'Time2']] = [i,time1, time2]
+            else:
+                time2 = arc_selection.iloc[p+1, 1]
+                GA_label = k + '_' + i + '_' + str(time1) + '_' + str(time2)
+                index = p+1
+                ground_arc_dfs.at[index, ['Airport', 'Time1', 'Time2']] = [i,time1, time2]
+            GA_labels.append(GA_label)
+        ga_dict[k + '_' + i] = copy.deepcopy(ground_arc_dfs)
+
+
+##  Find time for cutting timespace network
+t_cut = dt(0,9,0)
+# for k in actypes:
+#     print(nodes_dfs_dict[k]["Time"].isin([t_cut]).any())
 
 ## Make cplex  model and add variables
 RMP = cplex.Cplex()
@@ -87,10 +151,9 @@ RMP.variables.add(obj=Fare,
                   names=['t' + str(p) + '_x' for p in range(len(itin))])
 for i in flights:
     for k in actypes:
-            RMP.variables.add(obj=[dfs["Flight"].loc[i,k]], names=['f_' + str(i) + '_' + str(k)])
-## hier was ik: toevoegen variables y
-RMP.variables.add(names=['y_' + str(k) + '_' + str(i) + '_' + str() for k in actypes for i in ])
+        RMP.variables.add(obj=[flight_dfs.loc[i,k]], names=['f_' + str(i) + '_' + str(k)], types='B')
 
+RMP.variables.add(names=['y_' + z for z in GA_labels])
 
 ## Add constraint set 1
 for i in flights:
@@ -101,15 +164,38 @@ for i in flights:
         rhs=[1])
 
 ## Add constraint set 2
-for i in flights:
-    RMP.linear_constraints.add(
-        lin_expr=[cplex.SparsePair(ind=['f_' + str(i) + '_' + str(k) for k in actypes],
-                                   val=[1]*len(actypes))],
-        senses=['E'],
-        rhs=[1])
+k = actypes[0]
+n = nodes_dfs_dict[k].iloc[0]
+for k in actypes:
+    for nix, n in nodes_dfs_dict[k].iterrows():
+        airport = n["Airport"]
+        time = n["Time"]
+        OI_set = action_dict[k].loc[(action_dict[k]["Time"] == time) & (action_dict[k]["Airport"] == airport)]
+        O_set = OI_set.loc[(OI_set["Action"] == "DEP")]
+        I_set = OI_set.loc[(OI_set["Action"] == "ARR")]
+        time1 = ga_dict[k + '_' + airport].loc[ga_dict[k + '_' + airport]["Time2"] == time, "Time1"].values[0]
+        time2 = ga_dict[k + '_' + airport].loc[ga_dict[k + '_' + airport]["Time1"] == time, "Time2"].values[0]
+        #  n+
+        print('y_' + k + '_' + airport + '_' + str(time) + '_' + str(time2))
+        #  n-
+        print('y_' + k + '_' + airport + '_' + str(time1) + '_' + str(time))
+        # f O +
+        print('f_' + i + '_' + k for i in O_set.index)
+        # f I -
+        print('f_' + i + '_' + k for i in I_set.index)
+
+        RMP.linear_constraints.add(
+            lin_expr=[cplex.SparsePair(ind=['y_' + k + '_' + airport + '_' + str(time) + '_' + str(time2)] + [
+                'y_' + k + '_' + airport + '_' + str(time1) + '_' + str(time)] + ['f_' + i + '_' + k for i in O_set.index] + ['f_' + i + '_' + k for i in I_set.index],
+                                       val=[1, -1] + [1] * len(O_set) + [-1] * len(I_set))],
+            senses=['E'],
+            rhs=[0])
+
+
 
 
 ## add seperate constraints for busses -> get own capacity
+
 ## Add constraint set 4
 rhs_1 = []
 A_1 = np.zeros((len(flights), len(itin)))
