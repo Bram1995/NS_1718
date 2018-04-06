@@ -38,17 +38,20 @@ ga_dict = {}
 ga_list = []
 for k in actype_dfs.index:
     for i in airport_list:
-        #ground_arc_dfs = pd.DataFrame(columns = ['Time1','Time2'])
+        ground_arc_dfs = pd.DataFrame(columns = ['Airport','Time1','Time2'])
         arc_selection = nodes_dfs_dict[k].loc[nodes_dfs_dict[k]['Airport']==i,:]
         for p,j in enumerate(arc_selection.index):
             time1 = arc_selection.iloc[p, 1]
             if p == len(arc_selection.index)-1:
                 time2 =  arc_selection.iloc[0, 1]
-                index = k + '_' + i + '_' + str(time1) + '_' + str(time2) + '_' + 'ONGA'
-                #ground_arc_dfs.at[index, ['Time1', 'Time2']] = [time1, time2]
+                index = p+1
+                ground_arc_dfs.at[index, ['Airport','Time1', 'Time2']] = [i,time1, time2]
             else:
                 time2 = arc_selection.iloc[p+1, 1]
-                index = k + '_' + i + '_' + str(time1) + '_' + str(time2) + '_' + 'GA'
-                #ground_arc_dfs.at[index,['Time1','Time2']]= [time1, time2]
-        #ga_dict[k + '_'+ i] = copy.deepcopy(ground_arc_dfs)
+                index = p+1
+                ground_arc_dfs.at[index, ['Airport', 'Time1', 'Time2']] = [i,time1, time2]
             ga_list.append(copy.deepcopy(index))
+        ga_dict[k + '_' + i] = copy.deepcopy(ground_arc_dfs)
+
+
+
