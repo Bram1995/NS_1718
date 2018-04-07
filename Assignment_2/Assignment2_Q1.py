@@ -2,7 +2,8 @@ import cplex
 import numpy as np
 import copy
 import pandas as pd
-from datetime import datetime,timedelta,time,date
+from datetime import datetime,timedelta,date
+from datetime import time as td
 import itertools
 
 xl = pd.ExcelFile("Assignment2.xlsx")
@@ -61,3 +62,5 @@ for k in actype_dfs.index[:3]:
                 ground_arc_dfs.at[index, ['Airport', 'Time1', 'Time2']] = [i,time1, time2]
             ga_list.append(copy.deepcopy(index))
         ga_dict[k + '_' + i] = copy.deepcopy(ground_arc_dfs)
+
+t = td(0,0,1)
