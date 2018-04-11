@@ -172,11 +172,8 @@ RMP.variables.add(obj=Fare,
                   names=['t' + str(p) + '_x' for p in range(len(itin))])
 for i in flights:
     for k in actype_dfs.index:
-        RMP.variables.add(obj=[flight_dfs.loc[i,k]], names=['f_' + str(i) + '_' + str(k)])
+        RMP.variables.add(obj=[flight_dfs.loc[i,k]], names=['f_' + str(i) + '_' + str(k)], ub=[1])
 RMP.variables.add(names=['y_' + z for z in GA_labels])
-
-
-
 
 ## Add constraint set 1
 for i in flights:
