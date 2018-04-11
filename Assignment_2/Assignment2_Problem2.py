@@ -382,3 +382,31 @@ t_spilled = sol_t[sol_t>0]
 
 sol_index_list = [index for index in range(len(sol)) if sol[index] > 0.]
 sol_names_list = sol_names[sol_index_list]
+
+
+## PROBLEM 2
+flights_737 = np.array([i[2:8] for i in f_B737_chosen])
+flights_738 = np.array([i[2:8] for i in f_B738_chosen])
+frame_737 = flight_dfs.loc[flights_737].drop(columns=["A330","A340","B737","B738","Bus"])
+for k in frame_737.index:
+    time = datetime.combine(date(1,1,1),frame_737.loc[k,'Arrival'])
+    frame_737.at[k,'Arrival'] = (time + timedelta(minutes= 30)).time()
+frame_738 = flight_dfs.loc[flights_738].drop(columns=["A330","A340","B737","B738","Bus"])
+for k in frame_738.index:
+    time = datetime.combine(date(1, 1, 1), frame_738.loc[k, 'Arrival'])
+    frame_738.at[k, 'Arrival'] = (time + timedelta(minutes=35)).time()
+total_flight_links = pd.concat((frame_737,frame_738),axis=0)
+
+
+flights_73x = np.array([i[2:8] for i in np.append(f_B737_chosen,f_B738_chosen)])
+total_flight_data = action_dict['B738'].loc[flights_73x].sort_values(['Airport', 'Time'], ascending=[True, True])
+total_nodes_73x_names = np.array([str(total_flight_data.loc[:,"Airport"].values[i]) + '_' + str(total_flight_data.loc[:,"Time"].values[i]) for i in range(len(total_flight_data))])
+total_nodes_73x_names = np.unique(total_nodes_73x_names)
+total_nodes_73x = total_flight_data.loc[:,("Airport","Time")].drop_duplicates(subset=['Airport', 'Time']).sort_values(
+        ['Airport', 'Time'], ascending=[True, True]).reset_index(drop=True)
+
+# Choose source and sink node
+source = dt(5,15,0)
+sink = dt(13,12,0)
+nodes_73x = total_nodes_73x.loc[(total_nodes_73x["Time"] >= source) & (total_nodes_73x["Time"] <= sink)]
+flight_data = total_flight_links.loc[(total_flight_links["Departure"] >= source) & (total_flight_links["Arrival"] >= source) & (total_flight_links["Arrival"] <= sink) & (total_flight_links["Departure"] <= sink)]
