@@ -72,7 +72,7 @@ def col_generation(RMP,dfs, pi,sig_vect, p_index_list,vars_added, flights):
 
 ## Load data
 bigM = 10000000
-xl = pd.ExcelFile("Assignment_2\Assignment2.xlsx")
+xl = pd.ExcelFile("Assignment2.xlsx")
 dfs = {sheet: xl.parse(sheet) for sheet in xl.sheet_names}
 flight_dfs = dfs['Flight'].set_index('Flight Number')
 flight_dfs.at[:,'Bus'] = bigM
@@ -395,7 +395,8 @@ frame_738 = flight_dfs.loc[flights_738].drop(columns=["A330","A340","B737","B738
 for k in frame_738.index:
     time = datetime.combine(date(1, 1, 1), frame_738.loc[k, 'Arrival'])
     frame_738.at[k, 'Arrival'] = (time + timedelta(minutes=35)).time()
-total_flight_links = pd.concat((frame_737,frame_738),axis=0)
+total_flight_links = pd.concat((frame_737,frame_738),axis=0).sort_values(
+        ['ORG', 'Departure'])
 
 
 flights_73x = np.array([i[2:8] for i in np.append(f_B737_chosen,f_B738_chosen)])
@@ -406,7 +407,69 @@ total_nodes_73x = total_flight_data.loc[:,("Airport","Time")].drop_duplicates(su
         ['Airport', 'Time'], ascending=[True, True]).reset_index(drop=True)
 
 # Choose source and sink node
-source = dt(5,15,0)
-sink = dt(13,12,0)
-nodes_73x = total_nodes_73x.loc[(total_nodes_73x["Time"] >= source) & (total_nodes_73x["Time"] <= sink)]
-flight_data = total_flight_links.loc[(total_flight_links["Departure"] >= source) & (total_flight_links["Arrival"] >= source) & (total_flight_links["Arrival"] <= sink) & (total_flight_links["Departure"] <= sink)]
+source = dt(19,50,0)
+sink = dt(4,56,0)
+nodes_73x = total_nodes_73x.loc[(((source < sink) & (total_nodes_73x["Time"] >= source) & (total_nodes_73x["Time"] <= sink)) |
+                                ((source > sink) & ((total_nodes_73x["Time"] >= source) & (total_nodes_73x["Time"]<dt(23,59,59)) |
+                                 ((total_nodes_73x["Time"] <= sink) & (total_nodes_73x["Time"] > dt(0, 0, 0))))))]
+
+flight_data1 = total_flight_links.loc[((source < sink) & (total_flight_links["Arrival"] > total_flight_links["Departure"]) &
+                                      (total_flight_links["Departure"] >= source) &
+                                      (total_flight_links["Arrival"]<= sink))]
+
+
+flight_data2 = total_flight_links.loc[((source > sink) & (total_flight_links["Arrival"] > total_flight_links["Departure"]) &
+                                       (total_flight_links["Departure"] >= dt(0,0,0)) &
+                                      (total_flight_links["Arrival"] <= sink)) |
+                                      ((source > sink) &
+                                    (total_flight_links["Departure"]>= source) &
+                                    (total_flight_links["Arrival"]<= dt(23,59,59))) |
+                                    (source > sink) & (total_flight_links["Departure"]>= source) &
+                                    (total_flight_links["Arrival"] <= sink)]
+flight_data = pd.concat([flight_data1,flight_data2])
+
+arc_data = pd.DataFrame(columns=['ORG','DEST','Departure','Arrival','Label'])
+for k in np.unique(nodes_73x['Airport'].values):
+    sub = nodes_73x.loc[(nodes_73x['Airport']==k)]
+    for i in range(len(sub)-1):
+        org = k
+        dest = k
+        departure = sub.iloc[i,1]
+        arrival = sub.iloc[i+1,1]
+        if departure < arrival:
+            duration = datetime.combine(date.min, arrival) - datetime.combine(date.min, departure)
+        if arrival < departure:
+            duration = datetime.combine(date.min, departure) - datetime.combine(date.min, arrival)
+        if duration < timedelta(0,3*60*60):
+            label = [duration, 0,duration]      #[total_time, number of duties, idle time]
+            arc_data = arc_data.append(pd.DataFrame([[org,dest,departure,arrival,label]],columns=['ORG','DEST','Departure','Arrival','Label']),ignore_index=True)
+
+for i in flight_data.index:
+    org = flight_data.loc[i, 'ORG']
+    dest = flight_data.loc[i, 'DEST']
+    departure = flight_data.loc[i, 'Departure']
+    arrival = flight_data.loc[i, 'Arrival']
+    if departure < arrival:
+        duration = datetime.combine(date.min, arrival) - datetime.combine(date.min, departure)
+    if arrival < departure:
+        duration = datetime.combine(date.min, departure) - datetime.combine(date.min, arrival)
+    label = [duration, 1, 0]  # [total_time, number of duties, idle time]
+    arc_data = arc_data.append(pd.DataFrame([[org, dest, departure, arrival, label]],
+                                           columns=['ORG', 'DEST', 'Departure', 'Arrival', 'Label']), ignore_index=True)
+
+## Create graph:
+graph = {}
+for i,p in enumerate(nodes_73x.index):
+    airport = nodes_73x.loc[p,'Airport']
+    time = nodes_73x.loc[p,'Time']
+    graph[airport + '_' + str(time)]={}
+    arc_selection = arc_data.loc[(arc_data['ORG']==airport)&(arc_data['Departure']==time)]
+    if arc_selection.empty == False:
+        for j, t in enumerate(arc_selection.index):
+            dest = arc_selection.at[t,'DEST']
+            arr = arc_selection.at[t,'Arrival']
+            label = arc_selection.at[t,'Label']
+            graph[airport + '_' + str(time)][dest + '_' + str(arr)] = copy.deepcopy(label)
+    else:
+        print('1')
+        del graph[airport + '_' + str(time)]
