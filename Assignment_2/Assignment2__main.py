@@ -291,7 +291,7 @@ while Opt_Row is False or Opt_Col is False:
     while Opt_Row is False:
         row_added = False
         for p in range(len(itin)):
-            if sum(sol_t[np.array(p_index_list)==p]) > Demand[p]:
+            if round(sum(sol_t[np.array(p_index_list)==p])) > Demand[p]:
                 RMP.linear_constraints.add(
                     lin_expr=[[list(sol_names_t[np.array(p_index_list)==p]), [1]*sum(np.array(p_index_list)==p)]],
                     senses=['L'],
@@ -321,13 +321,19 @@ print("Transformed LP to MILP")
 RMP.solve()
 print("Cost            : {0:.5f}".format(RMP.solution.get_objective_value()))
 print("Solution status :", RMP.solution.get_status())
+sol_t = np.array(RMP.solution.get_values(np.arange(len(itin)).tolist()) + RMP.solution.get_values()[len(itin) + len(GA_labels) + len(flights) * len(actype_dfs.index):])
+sol_names_t = np.array(RMP.variables.get_names(np.arange(len(itin)).tolist()) + RMP.variables.get_names()[len(itin) + len(GA_labels) + len(flights) * len(actype_dfs.index):])
 Opt_Row = False
 
 ## Row Generation loop
 while Opt_Row is False:
     row_added = False
     for p in range(len(itin)):
-        if sum(sol_t[np.array(p_index_list)==p]) > Demand[p]:
+        if round(sum(sol_t[np.array(p_index_list)==p])) > Demand[p]:
+            print("p is " + str(p))
+            print(sol_names_t[np.array(p_index_list) == p])
+            print(sol_t[np.array(p_index_list)==p])
+            print(Demand[p])
             RMP.linear_constraints.add(
                 lin_expr=[[list(sol_names_t[np.array(p_index_list)==p]), [1]*sum(np.array(p_index_list)==p)]],
                 senses=['L'],
@@ -343,9 +349,9 @@ while Opt_Row is False:
         sol_t = np.array(RMP.solution.get_values(np.arange(len(itin)).tolist()) + RMP.solution.get_values()[len(itin) + len(GA_labels) + len(flights) * len(actype_dfs.index):])
         sol_names_t = np.array(RMP.variables.get_names(np.arange(len(itin)).tolist()) + RMP.variables.get_names()[len(itin) + len(GA_labels) + len(flights) * len(actype_dfs.index):])
         obj = RMP.solution.get_objective_value()
-        pi = np.array(RMP.solution.get_dual_values())
-        sig_vect[sig_it_index_list] = np.array(RMP.solution.get_dual_values()[constr_pi_begin+len(flights):])
-        Opt_Col = False
+        # pi = np.array(RMP.solution.get_dual_values())
+        # sig_vect[sig_it_index_list] = np.array(RMP.solution.get_dual_values()[constr_pi_begin+len(flights):])
+        # Opt_Col = False
     else:
         Opt_Row = True
 
