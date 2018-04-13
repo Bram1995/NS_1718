@@ -72,7 +72,7 @@ def col_generation(RMP,dfs, pi,sig_vect, p_index_list,vars_added, flights):
 
 ## Load data
 bigM = 10000000
-xl = pd.ExcelFile("Assignment2.xlsx")
+xl = pd.ExcelFile("Assignment_2\Assignment2.xlsx")
 dfs = {sheet: xl.parse(sheet) for sheet in xl.sheet_names}
 flight_dfs = dfs['Flight'].set_index('Flight Number')
 flight_dfs.at[:,'Bus'] = bigM
@@ -409,6 +409,8 @@ total_nodes_73x = total_flight_data.loc[:,("Airport","Time")].drop_duplicates(su
 # Choose source and sink node
 source = dt(19,50,0)
 sink = dt(4,56,0)
+source_name = 'AEP_' + str(source)
+sink_name = 'AEP_' + str(sink)
 nodes_73x = total_nodes_73x.loc[(((source < sink) & (total_nodes_73x["Time"] >= source) & (total_nodes_73x["Time"] <= sink)) |
                                 ((source > sink) & ((total_nodes_73x["Time"] >= source) & (total_nodes_73x["Time"]<dt(23,59,59)) |
                                  ((total_nodes_73x["Time"] <= sink) & (total_nodes_73x["Time"] > dt(0, 0, 0))))))]
@@ -441,7 +443,7 @@ for k in np.unique(nodes_73x['Airport'].values):
         if arrival < departure:
             duration = datetime.combine(date.min, departure) - datetime.combine(date.min, arrival)
         if duration < timedelta(0,3*60*60):
-            label = [duration, 0,duration]      #[total_time, number of duties, idle time]
+            label = [duration, 0, duration, 1]      #[total_time, number of duties, idle time]
             arc_data = arc_data.append(pd.DataFrame([[org,dest,departure,arrival,label]],columns=['ORG','DEST','Departure','Arrival','Label']),ignore_index=True)
 
 for i in flight_data.index:
@@ -453,7 +455,7 @@ for i in flight_data.index:
         duration = datetime.combine(date.min, arrival) - datetime.combine(date.min, departure)
     if arrival < departure:
         duration = datetime.combine(date.min, departure) - datetime.combine(date.min, arrival)
-    label = [duration, 1, 0]  # [total_time, number of duties, idle time]
+    label = [duration, 1, timedelta(0), 0]  # [total_time, number of duties, idle time]
     arc_data = arc_data.append(pd.DataFrame([[org, dest, departure, arrival, label]],
                                            columns=['ORG', 'DEST', 'Departure', 'Arrival', 'Label']), ignore_index=True)
 
@@ -471,5 +473,76 @@ for i,p in enumerate(nodes_73x.index):
             label = arc_selection.at[t,'Label']
             graph[airport + '_' + str(time)][dest + '_' + str(arr)] = copy.deepcopy(label)
     else:
-        print('1')
         del graph[airport + '_' + str(time)]
+graph[sink_name] = {}  # add sink node so dijkstra can choose this one as last node
+
+path, sum_label = dijkstra(graph, source_name, sink_name)
+
+src = source_name
+dest = sink_name
+visited=None
+time=None
+predecessors = None
+sum_label=None
+def dijkstra(graph, src, dest, visited=None, predecessors=None, sum_label=None):
+    """ calculates a shortest path tree routed in src
+    """
+    if visited is None:
+        visited = []
+    if sum_label is None:
+        sum_label = {}
+    if predecessors is None:
+        predecessors = {}
+    # a few sanity checks
+    if src not in graph:
+        raise TypeError('The root of the shortest path tree cannot be found')
+    if dest not in graph:
+        raise TypeError('The target of the shortest path cannot be found')
+        # ending condition
+    if src == dest:
+        # We build the shortest path and display it
+        path = []
+        pred = dest
+        while pred != None:
+            path.append(pred)
+            pred = predecessors.get(pred, None)
+        # print('shortest path: ' + str(path) + " cost=" + str(time[dest]))
+        path=np.flipud(path)
+        return path, sum_label
+    else:
+        # if it is the initial  run, initializes the cost
+        if not visited:
+            sum_label[src] = [timedelta(0),0,timedelta(0,45*60)]
+        # visit the neighbors
+        for neighbor in graph[src]:
+            if neighbor not in visited:
+                if graph[src][neighbor][3] == 0:  # if flight arc
+                    if sum_label[src][1] + graph[src][neighbor][1] <= 4 and sum_label[src][2] + graph[src][neighbor][2] >= timedelta(0,45*60):
+                        new_time = sum_label[src][0] + graph[src][neighbor][0]
+                        if new_time < sum_label.get(neighbor, timedelta(999,999)):
+                            sum_label[neighbor] = [new_time, sum_label[src][1] + graph[src][neighbor][1], timedelta(0)]
+                            predecessors[neighbor] = src
+                elif graph[src][neighbor][3] == 1:  # if ground arc
+                    if sum_label[src][2] + graph[src][neighbor][2] <= timedelta(0,180*60):
+                        new_time = sum_label[src][0] + graph[src][neighbor][0]
+                        if new_time < sum_label.get(neighbor, timedelta(999,999)):
+                            sum_label[neighbor] = [new_time, sum_label[src][1] + graph[src][neighbor][1], sum_label[src][2] + graph[src][neighbor][2]]
+                            predecessors[neighbor] = src
+                else:
+                    raise TypeError('There is no feasible path from this source node')
+        # mark as visited
+        visited.append(src)
+        # now that all neighbors have been visited: recurse
+        # select the non visited node with lowest distance 'x'
+        # run Dijskstra with src='x'
+
+        unvisited = {}
+        for k in graph:
+            if k not in visited:
+                unvisited[k] = sum_label.get(k, timedelta(999,999))
+        x = min(unvisited, key=unvisited.get)
+        return dijkstra(graph, x, dest, visited, predecessors, sum_label)
+
+src = x
+neighbor = 'AEP_19:57:00'
+neighbor = 'AEP_20:00:00'
