@@ -407,8 +407,8 @@ total_nodes_73x = total_flight_data.loc[:,("Airport","Time")].drop_duplicates(su
         ['Airport', 'Time'], ascending=[True, True]).reset_index(drop=True)
 
 # Choose source and sink node
-source = dt(19,50,0)
-sink = dt(4,56,0)
+source = dt(6,0,0)
+sink = dt(13,10,0)
 source_name = 'AEP_' + str(source)
 sink_name = 'AEP_' + str(sink)
 nodes_73x = total_nodes_73x.loc[(((source < sink) & (total_nodes_73x["Time"] >= source) & (total_nodes_73x["Time"] <= sink)) |
@@ -443,7 +443,7 @@ for k in np.unique(nodes_73x['Airport'].values):
         if arrival < departure:
             duration = datetime.combine(date.min, departure) - datetime.combine(date.min, arrival)
         if duration < timedelta(0,3*60*60):
-            label = [duration, 0, duration, 1]      #[total_time, number of duties, idle time]
+            label = [duration.seconds*1000, 0, duration, 1]      #[total_time, number of duties, idle time]
             arc_data = arc_data.append(pd.DataFrame([[org,dest,departure,arrival,label]],columns=['ORG','DEST','Departure','Arrival','Label']),ignore_index=True)
 
 for i in flight_data.index:
@@ -455,7 +455,7 @@ for i in flight_data.index:
         duration = datetime.combine(date.min, arrival) - datetime.combine(date.min, departure)
     if arrival < departure:
         duration = datetime.combine(date.min, departure) - datetime.combine(date.min, arrival)
-    label = [duration, 1, timedelta(0), 0]  # [total_time, number of duties, idle time]
+    label = [duration.seconds, 1, timedelta(0), 0]  # [total_time, number of duties, idle time]
     arc_data = arc_data.append(pd.DataFrame([[org, dest, departure, arrival, label]],
                                            columns=['ORG', 'DEST', 'Departure', 'Arrival', 'Label']), ignore_index=True)
 
@@ -512,22 +512,22 @@ def dijkstra(graph, src, dest, visited=None, predecessors=None, sum_label=None):
     else:
         # if it is the initial  run, initializes the cost
         if not visited:
-            sum_label[src] = [timedelta(0),0,timedelta(0,45*60)]
+            sum_label[src] = [0,0,timedelta(0,45*60)]
         # visit the neighbors
         for neighbor in graph[src]:
             if neighbor not in visited:
                 if graph[src][neighbor][3] == 0:  # if flight arc
                     if sum_label[src][1] + graph[src][neighbor][1] <= 4 and sum_label[src][2] + graph[src][neighbor][2] >= timedelta(0,45*60):
-                        new_time = sum_label[src][0] + graph[src][neighbor][0]
-                        if new_time < sum_label.get(neighbor, timedelta(999,999)):
-                            sum_label[neighbor] = [new_time, sum_label[src][1] + graph[src][neighbor][1], timedelta(0)]
+                        new_cost = sum_label[src][0] + graph[src][neighbor][0]
+                        if new_cost < sum_label.get(neighbor, [float('inf')])[0]:
                             predecessors[neighbor] = src
+                            sum_label[neighbor] = [new_cost, sum_label[src][1] + graph[src][neighbor][1], timedelta(0)]
                 elif graph[src][neighbor][3] == 1:  # if ground arc
                     if sum_label[src][2] + graph[src][neighbor][2] <= timedelta(0,180*60):
-                        new_time = sum_label[src][0] + graph[src][neighbor][0]
-                        if new_time < sum_label.get(neighbor, timedelta(999,999)):
-                            sum_label[neighbor] = [new_time, sum_label[src][1] + graph[src][neighbor][1], sum_label[src][2] + graph[src][neighbor][2]]
+                        new_cost = sum_label[src][0] + graph[src][neighbor][0]
+                        if new_cost < sum_label.get(neighbor, [float('inf')])[0]:
                             predecessors[neighbor] = src
+                            sum_label[neighbor] = [new_cost, sum_label[src][1] + graph[src][neighbor][1],sum_label[src][2] + graph[src][neighbor][2]]
                 else:
                     raise TypeError('There is no feasible path from this source node')
         # mark as visited
@@ -539,8 +539,15 @@ def dijkstra(graph, src, dest, visited=None, predecessors=None, sum_label=None):
         unvisited = {}
         for k in graph:
             if k not in visited:
-                unvisited[k] = sum_label.get(k, timedelta(999,999))
-        x = min(unvisited, key=unvisited.get)
+                unvisited[k] = sum_label.get(k, [float('inf'),0,timedelta(999,999)])
+        # x = min(unvisited, key=unvisited.get)
+        costs = [elem[0] for elem in unvisited.values()]
+        # print(costs)
+        x = list(unvisited)[costs.index(min(costs))]
+        if costs.index(min(costs)) == float('inf'):
+            print("There is no feasible path from this source node")
+        # print(x)
+        # print(sum_label)
         return dijkstra(graph, x, dest, visited, predecessors, sum_label)
 
 src = x
