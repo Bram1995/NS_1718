@@ -72,7 +72,7 @@ def col_generation(RMP,dfs, pi,sig_vect, p_index_list,vars_added, flights):
 
 ## Load data
 bigM = 10000000
-xl = pd.ExcelFile("Assignment_2\Assignment2.xlsx")
+xl = pd.ExcelFile("Assignment2.xlsx")
 dfs = {sheet: xl.parse(sheet) for sheet in xl.sheet_names}
 flight_dfs = dfs['Flight'].set_index('Flight Number')
 flight_dfs.at[:,'Bus'] = bigM
@@ -382,3 +382,9 @@ t_spilled = sol_t[sol_t>0]
 
 sol_index_list = [index for index in range(len(sol)) if sol[index] > 0.]
 sol_names_list = sol_names[sol_index_list]
+
+
+h=0
+for i in GA_labels:
+    if i.find('A330') == 0:
+        h=h+1
