@@ -69,6 +69,74 @@ def col_generation(RMP,dfs, pi,sig_vect, p_index_list,vars_added, flights):
                                                                                                [1] * len(p_leg_ind_list) + [-bpr] * len(r_leg_ind_list)]])
 
     return(RMP,p_index_list, col_added,vars_added)
+def dijkstra(graph, src, dest, visited=None, predecessors=None, sum_label=None):
+    """ calculates a shortest path tree routed in src
+    """
+    if visited is None:
+        visited = []
+    if sum_label is None:
+        sum_label = {}
+    if predecessors is None:
+        predecessors = {}
+    # a few sanity checks
+    if src not in graph:
+        pass
+        # raise TypeError('The root of the shortest path tree cannot be found')
+    if dest not in graph:
+        pass
+        # raise TypeError('The target of the shortest path cannot be found')
+        # ending condition
+    if src == dest:
+        # We build the shortest path and display it
+        path = []
+        pred = dest
+        while pred != None:
+            path.append(pred)
+            pred = predecessors.get(pred, None)
+        # print('shortest path: ' + str(path) + " cost=" + str(time[dest]))
+        path=np.flipud(path)
+        return path, sum_label
+    else:
+        # if it is the initial  run, initializes the cost
+        try:
+            if not visited:
+                sum_label[src] = [0,0,timedelta(0,45*60)]
+            # visit the neighbors
+            for neighbor in graph[src]:
+                if neighbor not in visited:
+                    if graph[src][neighbor][3] == 0:  # if flight arc
+                        if sum_label[src][1] + graph[src][neighbor][1] <= 4 and sum_label[src][2] + graph[src][neighbor][2] >= timedelta(0,15*60):
+                            new_cost = sum_label[src][0] + graph[src][neighbor][0]
+                            if new_cost < sum_label.get(neighbor, [float('inf')])[0]:
+                                predecessors[neighbor] = src
+                                sum_label[neighbor] = [new_cost, sum_label[src][1] + graph[src][neighbor][1], timedelta(0)]
+                    elif graph[src][neighbor][3] == 1:  # if ground arc
+                        if sum_label[src][2] + graph[src][neighbor][2] <= timedelta(0,180*60):
+                            new_cost = sum_label[src][0] + graph[src][neighbor][0]
+                            if new_cost < sum_label.get(neighbor, [float('inf')])[0]:
+                                predecessors[neighbor] = src
+                                sum_label[neighbor] = [new_cost, sum_label[src][1] + graph[src][neighbor][1],sum_label[src][2] + graph[src][neighbor][2]]
+                    else:
+                        raise TypeError('There is no feasible path from this source node')
+        except KeyError:
+            pass
+            # print("There is no feasible path from this source node")
+        # mark as visited
+        visited.append(src)
+        # now that all neighbors have been visited: recurse
+        # select the non visited node with lowest distance 'x'
+        # run Dijskstra with src='x'
+
+        unvisited = {}
+        for k in graph:
+            if k not in visited:
+                unvisited[k] = sum_label.get(k, [float('inf'),0,timedelta(999,999)])
+        # x = min(unvisited, key=unvisited.get)
+        costs = [elem[0] for elem in unvisited.values()]
+        x = list(unvisited)[costs.index(min(costs))]
+        if costs.index(min(costs)) == float('inf'):
+            print("There is no feasible path from this source node")
+        return dijkstra(graph, x, dest, visited, predecessors, sum_label)
 
 ## Load data
 bigM = 10000000
@@ -195,14 +263,6 @@ for k in actypes:
         I_set = OI_set.loc[(OI_set["Action"] == "ARR")]
         time1 = ga_dict[k + '_' + airport].loc[ga_dict[k + '_' + airport]["Time2"] == time, "Time1"].values[0]
         time2 = ga_dict[k + '_' + airport].loc[ga_dict[k + '_' + airport]["Time1"] == time, "Time2"].values[0]
-        # #  n+
-        # print('y_' + k + '_' + airport + '_' + str(time) + '_' + str(time2))
-        # #  n-
-        # print('y_' + k + '_' + airport + '_' + str(time1) + '_' + str(time))
-        # # f O +
-        # print('f_' + i + '_' + k for i in O_set.index)
-        # # f I -
-        # print('f_' + i + '_' + k for i in I_set.index)
         RMP.linear_constraints.add(
             lin_expr=[cplex.SparsePair(ind=['y_' + k + '_' + airport + '_' + str(time) + '_' + str(time2)] + [
                 'y_' + k + '_' + airport + '_' + str(time1) + '_' + str(time)] + ['f_' + i + '_' + k for i in O_set.index] + ['f_' + i + '_' + k for i in I_set.index],
@@ -275,6 +335,7 @@ while Opt_Row is False or Opt_Col is False:
         if col_added is True:
             itcount_col += 1
             print("Added columns")
+            print((vars_added))
             RMP.solve()
             print("Cost            : {0:.5f}".format(RMP.solution.get_objective_value()))
             sol_t = np.array(RMP.solution.get_values(np.arange(len(itin)).tolist()) + RMP.solution.get_values()[len(itin)+len(GA_labels)+len(flights)*len(actype_dfs.index):])
@@ -290,14 +351,17 @@ while Opt_Row is False or Opt_Col is False:
     # Row Generation loop
     while Opt_Row is False:
         row_added = False
+        rowadd = 0
         for p in range(len(itin)):
             if round(sum(sol_t[np.array(p_index_list)==p])) > Demand[p]:
+                rowadd += 1
                 RMP.linear_constraints.add(
                     lin_expr=[[list(sol_names_t[np.array(p_index_list)==p]), [1]*sum(np.array(p_index_list)==p)]],
                     senses=['L'],
                     rhs=[Demand[p]])
                 sig_it_index_list.append(p)
                 row_added = True
+        print(rowadd)
         if row_added is True:
             itcount_row += 1
             print("Added rows")
@@ -371,11 +435,14 @@ sol_f = np.round(RMP.solution.get_values()[len(itin):len(itin) + len(flights) * 
 f_chosen = solnames_f[sol_f==1]
 ix_A340 = [i for i, x in enumerate(f_chosen) if "A340" in x]
 f_A340_chosen = f_chosen[ix_A340]
-
+ix_A330 = [i for i, x in enumerate(f_chosen) if "A330" in x]
+f_A330_chosen = f_chosen[ix_A330]
 ix_B737 = [i for i, x in enumerate(f_chosen) if "B737" in x]
 f_B737_chosen = f_chosen[ix_B737]
 ix_B738 = [i for i, x in enumerate(f_chosen) if "B738" in x]
 f_B738_chosen = f_chosen[ix_B738]
+ix_Bus = [i for i, x in enumerate(f_chosen) if "Bus" in x]
+f_Bus_chosen = f_chosen[ix_Bus]
 
 t_names_spilled = sol_names_t[sol_t>0]
 t_spilled = sol_t[sol_t>0]
@@ -397,152 +464,109 @@ for k in frame_738.index:
     frame_738.at[k, 'Arrival'] = (time + timedelta(minutes=35)).time()
 total_flight_links = pd.concat((frame_737,frame_738),axis=0).sort_values(
         ['ORG', 'Departure'])
-
-
 flights_73x = np.array([i[2:8] for i in np.append(f_B737_chosen,f_B738_chosen)])
 total_flight_data = action_dict['B738'].loc[flights_73x].sort_values(['Airport', 'Time'], ascending=[True, True])
 total_nodes_73x_names = np.array([str(total_flight_data.loc[:,"Airport"].values[i]) + '_' + str(total_flight_data.loc[:,"Time"].values[i]) for i in range(len(total_flight_data))])
 total_nodes_73x_names = np.unique(total_nodes_73x_names)
 total_nodes_73x = total_flight_data.loc[:,("Airport","Time")].drop_duplicates(subset=['Airport', 'Time']).sort_values(
         ['Airport', 'Time'], ascending=[True, True]).reset_index(drop=True)
+source_nodes = np.unique(total_flight_data.loc[(total_flight_data["Action"]=="DEP")&(total_flight_data["Airport"]=="AEP"),"Time"].values)
+sink_nodes = np.unique(total_flight_data.loc[(total_flight_data["Action"]=="ARR")&(total_flight_data["Airport"]=="AEP"),"Time"].values)
 
-# Choose source and sink node
-source = dt(19,50,0)
-sink = dt(4,56,0)
-source_name = 'AEP_' + str(source)
-sink_name = 'AEP_' + str(sink)
-nodes_73x = total_nodes_73x.loc[(((source < sink) & (total_nodes_73x["Time"] >= source) & (total_nodes_73x["Time"] <= sink)) |
-                                ((source > sink) & ((total_nodes_73x["Time"] >= source) & (total_nodes_73x["Time"]<dt(23,59,59)) |
-                                 ((total_nodes_73x["Time"] <= sink) & (total_nodes_73x["Time"] > dt(0, 0, 0))))))]
-
-flight_data1 = total_flight_links.loc[((source < sink) & (total_flight_links["Arrival"] > total_flight_links["Departure"]) &
-                                      (total_flight_links["Departure"] >= source) &
-                                      (total_flight_links["Arrival"]<= sink))]
-
-
-flight_data2 = total_flight_links.loc[((source > sink) & (total_flight_links["Arrival"] > total_flight_links["Departure"]) &
-                                       (total_flight_links["Departure"] >= dt(0,0,0)) &
-                                      (total_flight_links["Arrival"] <= sink)) |
-                                      ((source > sink) &
-                                    (total_flight_links["Departure"]>= source) &
-                                    (total_flight_links["Arrival"]<= dt(23,59,59))) |
-                                    (source > sink) & (total_flight_links["Departure"]>= source) &
-                                    (total_flight_links["Arrival"] <= sink)]
-flight_data = pd.concat([flight_data1,flight_data2])
-
+##  Full graph creator
 arc_data = pd.DataFrame(columns=['ORG','DEST','Departure','Arrival','Label'])
-for k in np.unique(nodes_73x['Airport'].values):
-    sub = nodes_73x.loc[(nodes_73x['Airport']==k)]
-    for i in range(len(sub)-1):
-        org = k
-        dest = k
-        departure = sub.iloc[i,1]
-        arrival = sub.iloc[i+1,1]
-        if departure < arrival:
-            duration = datetime.combine(date.min, arrival) - datetime.combine(date.min, departure)
-        if arrival < departure:
-            duration = datetime.combine(date.min, departure) - datetime.combine(date.min, arrival)
-        if duration < timedelta(0,3*60*60):
-            label = [duration, 0, duration, 1]      #[total_time, number of duties, idle time]
-            arc_data = arc_data.append(pd.DataFrame([[org,dest,departure,arrival,label]],columns=['ORG','DEST','Departure','Arrival','Label']),ignore_index=True)
-
-for i in flight_data.index:
-    org = flight_data.loc[i, 'ORG']
-    dest = flight_data.loc[i, 'DEST']
-    departure = flight_data.loc[i, 'Departure']
-    arrival = flight_data.loc[i, 'Arrival']
+for k in np.unique(total_nodes_73x['Airport'].values):
+    sub = total_nodes_73x.loc[(total_nodes_73x['Airport']==k)]
+    for i in range(len(sub)):
+        if i != len(sub)-1:
+            org = k
+            dest = k
+            departure = sub.iloc[i,1]
+            arrival = sub.iloc[i+1,1]
+            if departure < arrival:
+                duration = datetime.combine(date.min, arrival) - datetime.combine(date.min, departure)
+            if arrival < departure:
+                duration = timedelta(1,0) - (datetime.combine(date.min, departure) - datetime.combine(date.min, arrival))
+            if duration < timedelta(0,3*60*60):
+                label = [duration.seconds*1000, 0, duration, 1]      #[total_time, number of duties, idle time]
+                arc_data = arc_data.append(pd.DataFrame([[org,dest,departure,arrival,label]],columns=['ORG','DEST','Departure','Arrival','Label']),ignore_index=True)
+        elif i == len(sub)-1:
+            org = k
+            dest = k
+            departure = sub.iloc[i, 1]
+            arrival = sub.iloc[0, 1]
+            duration = timedelta(1, 0) - (datetime.combine(date.min, departure) - datetime.combine(date.min, arrival))
+            label = [duration.seconds * 1000, 0, duration, 1]  # [total_time, number of duties, idle time]
+            arc_data = arc_data.append(pd.DataFrame([[org, dest, departure, arrival, label]],
+                                            columns=['ORG', 'DEST', 'Departure', 'Arrival', 'Label']),
+                               ignore_index=True)
+for i in total_flight_links.index:
+    org = total_flight_links.loc[i, 'ORG']
+    dest = total_flight_links.loc[i, 'DEST']
+    departure = total_flight_links.loc[i, 'Departure']
+    arrival = total_flight_links.loc[i, 'Arrival']
     if departure < arrival:
         duration = datetime.combine(date.min, arrival) - datetime.combine(date.min, departure)
     if arrival < departure:
-        duration = datetime.combine(date.min, departure) - datetime.combine(date.min, arrival)
-    label = [duration, 1, timedelta(0), 0]  # [total_time, number of duties, idle time]
+        duration = timedelta(1,0) - (datetime.combine(date.min, departure) - datetime.combine(date.min, arrival))
+    label = [duration.seconds, 1, timedelta(0), 0]  # [total_time, number of duties, idle time]
     arc_data = arc_data.append(pd.DataFrame([[org, dest, departure, arrival, label]],
                                            columns=['ORG', 'DEST', 'Departure', 'Arrival', 'Label']), ignore_index=True)
 
 ## Create graph:
 graph = {}
-for i,p in enumerate(nodes_73x.index):
-    airport = nodes_73x.loc[p,'Airport']
-    time = nodes_73x.loc[p,'Time']
+for i,p in enumerate(total_nodes_73x.index):
+    airport = total_nodes_73x.loc[p,'Airport']
+    time = total_nodes_73x.loc[p,'Time']
     graph[airport + '_' + str(time)]={}
     arc_selection = arc_data.loc[(arc_data['ORG']==airport)&(arc_data['Departure']==time)]
-    if arc_selection.empty == False:
-        for j, t in enumerate(arc_selection.index):
-            dest = arc_selection.at[t,'DEST']
-            arr = arc_selection.at[t,'Arrival']
-            label = arc_selection.at[t,'Label']
-            graph[airport + '_' + str(time)][dest + '_' + str(arr)] = copy.deepcopy(label)
-    else:
-        del graph[airport + '_' + str(time)]
-graph[sink_name] = {}  # add sink node so dijkstra can choose this one as last node
+    for j, t in enumerate(arc_selection.index):
+        dest = arc_selection.at[t,'DEST']
+        arr = arc_selection.at[t,'Arrival']
+        label = arc_selection.at[t,'Label']
+        graph[airport + '_' + str(time)][dest + '_' + str(arr)] = copy.deepcopy(label)
 
-path, sum_label = dijkstra(graph, source_name, sink_name)
+pairings = []
+for i in range(0,len(source_nodes),1):
+    for j in range(0,len(sink_nodes),1):
+        source = source_nodes[i]
+        sink = sink_nodes[j]
+        # source = dt(15,55)
+        # sink = dt(23,53)
+        if source < sink:
+            duration = datetime.combine(date.min, sink) - datetime.combine(date.min, source)
+        else:
+            duration = timedelta(1,0) - (datetime.combine(date.min, source) - datetime.combine(date.min, sink))
+        if duration >= timedelta(0,185*60) and duration <= timedelta(0,8*60*60):
+            source_name = 'AEP_' + str(source)
+            sink_name = 'AEP_' + str(sink)
+            # print(source_name)
+            # print(sink_name)
+            # graph,flight_data,arc_data = graph_creator(source, sink,total_nodes_73x)
+            path, sum_label = dijkstra(graph, source_name, sink_name)
+            if len(path) > 1:
+                if path[1][:3] != "AEP" and path[-2][:3] != "AEP":
+                    pairings.append(path)
+                    print(path)
 
-src = source_name
-dest = sink_name
-visited=None
-time=None
-predecessors = None
-sum_label=None
-def dijkstra(graph, src, dest, visited=None, predecessors=None, sum_label=None):
-    """ calculates a shortest path tree routed in src
-    """
-    if visited is None:
-        visited = []
-    if sum_label is None:
-        sum_label = {}
-    if predecessors is None:
-        predecessors = {}
-    # a few sanity checks
-    if src not in graph:
-        raise TypeError('The root of the shortest path tree cannot be found')
-    if dest not in graph:
-        raise TypeError('The target of the shortest path cannot be found')
-        # ending condition
-    if src == dest:
-        # We build the shortest path and display it
-        path = []
-        pred = dest
-        while pred != None:
-            path.append(pred)
-            pred = predecessors.get(pred, None)
-        # print('shortest path: ' + str(path) + " cost=" + str(time[dest]))
-        path=np.flipud(path)
-        return path, sum_label
-    else:
-        # if it is the initial  run, initializes the cost
-        if not visited:
-            sum_label[src] = [timedelta(0),0,timedelta(0,45*60)]
-        # visit the neighbors
-        for neighbor in graph[src]:
-            if neighbor not in visited:
-                if graph[src][neighbor][3] == 0:  # if flight arc
-                    if sum_label[src][1] + graph[src][neighbor][1] <= 4 and sum_label[src][2] + graph[src][neighbor][2] >= timedelta(0,45*60):
-                        new_time = sum_label[src][0] + graph[src][neighbor][0]
-                        if new_time < sum_label.get(neighbor, timedelta(999,999)):
-                            sum_label[neighbor] = [new_time, sum_label[src][1] + graph[src][neighbor][1], timedelta(0)]
-                            predecessors[neighbor] = src
-                elif graph[src][neighbor][3] == 1:  # if ground arc
-                    if sum_label[src][2] + graph[src][neighbor][2] <= timedelta(0,180*60):
-                        new_time = sum_label[src][0] + graph[src][neighbor][0]
-                        if new_time < sum_label.get(neighbor, timedelta(999,999)):
-                            sum_label[neighbor] = [new_time, sum_label[src][1] + graph[src][neighbor][1], sum_label[src][2] + graph[src][neighbor][2]]
-                            predecessors[neighbor] = src
-                else:
-                    raise TypeError('There is no feasible path from this source node')
-        # mark as visited
-        visited.append(src)
-        # now that all neighbors have been visited: recurse
-        # select the non visited node with lowest distance 'x'
-        # run Dijskstra with src='x'
 
-        unvisited = {}
-        for k in graph:
-            if k not in visited:
-                unvisited[k] = sum_label.get(k, timedelta(999,999))
-        x = min(unvisited, key=unvisited.get)
-        return dijkstra(graph, x, dest, visited, predecessors, sum_label)
+fl=[]
+for ix,i in enumerate(pairings):
+    for j in i:
+        AP = j[:3]
+        Time = datetime.strptime(j[4:], '%H:%M:%S').time()
+        if not flight_dfs.loc[(flight_dfs["ORG"]==AP)&(flight_dfs["Departure"]==Time)].empty:
+            # print(flight_dfs.loc[(flight_dfs["ORG"]==AP)&(flight_dfs["Departure"]==Time)])
+            print(flight_dfs.index[(flight_dfs["ORG"] == AP) & (flight_dfs["Departure"] == Time)][0])
 
-src = x
-neighbor = 'AEP_19:57:00'
-neighbor = 'AEP_20:00:00'
+
+for ix,i in enumerate(pairings):
+        Time1 = datetime.combine(date.min, datetime.strptime(i[0][4:], '%H:%M:%S').time())
+        Time2 = datetime.combine(date.min, datetime.strptime(i[-1][4:], '%H:%M:%S').time())
+        Time3 = datetime.combine(date.min, datetime.strptime(i[1][4:], '%H:%M:%S').time())
+        Time4 = datetime.combine(date.min, datetime.strptime(i[-2][4:], '%H:%M:%S').time())
+
+        duration = Time2 - Time1
+        idle = Time4- Time3 + timedelta(0,35*60)
+        print(str(duration))
+        # print(str(idle))
