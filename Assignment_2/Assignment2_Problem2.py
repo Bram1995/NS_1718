@@ -211,7 +211,7 @@ for k in actype_dfs.index[:4]:
         for p,j in enumerate(arc_selection.index):
             time1 = arc_selection.iloc[p, 1]
             if p == len(arc_selection.index)-1:
-                time2 =  arc_selection.iloc[0, 1]
+                time2 = arc_selection.iloc[0, 1]
                 GA_label = k + '_' + i + '_' + str(time1) + '_' + str(time2)
                 index = p+1
                 ground_arc_dfs.at[index, ['Airport','Time1', 'Time2']] = [i,time1, time2]
@@ -335,7 +335,6 @@ while Opt_Row is False or Opt_Col is False:
         if col_added is True:
             itcount_col += 1
             print("Added columns")
-            print((vars_added))
             RMP.solve()
             print("Cost            : {0:.5f}".format(RMP.solution.get_objective_value()))
             sol_t = np.array(RMP.solution.get_values(np.arange(len(itin)).tolist()) + RMP.solution.get_values()[len(itin)+len(GA_labels)+len(flights)*len(actype_dfs.index):])
@@ -447,11 +446,15 @@ f_Bus_chosen = f_chosen[ix_Bus]
 t_names_spilled = sol_names_t[sol_t>0]
 t_spilled = sol_t[sol_t>0]
 
+for i in range(len(t_names_spilled)):
+    # print(t_names_spilled[i][1:-2])
+    print(t_spilled[i])
+
 sol_index_list = [index for index in range(len(sol)) if sol[index] > 0.]
 sol_names_list = sol_names[sol_index_list]
 
 
-## PROBLEM 2
+## PROBLEM 2 #######################################################
 flights_737 = np.array([i[2:8] for i in f_B737_chosen])
 flights_738 = np.array([i[2:8] for i in f_B738_chosen])
 frame_737 = flight_dfs.loc[flights_737].drop(columns=["A330","A340","B737","B738","Bus"])
@@ -570,3 +573,5 @@ for ix,i in enumerate(pairings):
         idle = Time4- Time3 + timedelta(0,35*60)
         print(str(duration))
         # print(str(idle))
+
+
